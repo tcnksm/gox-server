@@ -11,13 +11,13 @@ gox-server
 
 Golang cross compile on Heroku.
 
-Just request some golang GitHub repository name, you can download compiled binary for your platform without golang runtime on your local PC. Currently request repository must be `go build`-able. Support platform is Darwin/Linux/Windows, 386/amd64. This is just POC and playing with [Heroku with Docker](https://devcenter.heroku.com/articles/introduction-local-development-with-docker). You should prepare your own build environment. 
+Just request some golang GitHub repository name, you can get compiled binary for your platform without golang runtime on your local PC. Currently request repository must be `go build`-able. Support platform is Darwin/Linux/Windows, 386/amd64. This is just POC and playing with [Heroku with Docker](https://devcenter.heroku.com/articles/introduction-local-development-with-docker). You should prepare your own build environment. 
 
 ## Demo
 
 Demo application is hosted on [https://gox-server.herokuapp.com/](https://gox-server.herokuapp.com/).
 
-For example, if you want [github.com/Soulou/curl-unix-socket](https://github.com/Soulou/curl-unix-socket) compiled binary, 
+For example, to get [github.com/Soulou/curl-unix-socket](https://github.com/Soulou/curl-unix-socket) compiled binary, 
 
 ```bash
 $ curl -A "`uname -sp`" https://gox-server.herokuapp.com/Soulou/curl-unix-socket > curl-unix-socket
@@ -28,10 +28,10 @@ Or access from your browser [https://gox-server.herokuapp.com/Soulou/curl-unix-s
 
 ## Usage
 
-To get binary for platform (`uname -sp`) hosted on [github.com/OWNER/REPO](),
+To get binary for platform (`uname -sp`) hosted on [github.com/${owner}/${repo}](),
 
 ```bash
-$ curl -A "`uname -sp`" https://gox-server.herokuapp.com/OWNER/REPO > REPO
+$ curl -A "`uname -sp`" https://gox-server.herokuapp.com/${owner}/${repo}
 ```
 
 ## Development
@@ -42,7 +42,7 @@ You can run this on local dev environment. You need to prepare `docker` and [her
 $ heroku docker:start
 ```
 
-And just request (e.g., your docker works on `192.168.59.103`),
+And create request (e.g., your docker works on `192.168.59.103`), to get [github.com/tcnksm/ghr](https://github.com/tcnksm/ghr)
 
 ```bash
 $ curl -A "`uname -sp`" http://192.168.59.103:3000/tcnksm/ghr > ghr
