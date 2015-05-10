@@ -19,6 +19,7 @@ const EnvPort = "PORT"
 func main() {
 	os.Exit(realMain())
 }
+
 func realMain() int {
 
 	log.SetOutput(os.Stdout)
@@ -37,27 +38,11 @@ func realMain() int {
 	}
 	log.Printf("[INFO] gox is in %s", path)
 
-	hystrix.ConfigureCommand("gox", hystrix.CommandConfig{
-		// How long to wait for command to complete, in milliseconds
-		Timeout: 50000,
+	// Set hystrix configuration
+	// See more on https://github.com/afex/hystrix-go
+	hystrix.ConfigureCommand("gox", goxHystrixConfig)
 
-		// MaxConcurrent is how many commands of the same type
-		// can run at the same time
-		MaxConcurrentRequests: 10,
-
-		// VolumeThreshold is the minimum number of requests
-		// needed before a circuit can be tripped due to health
-		RequestVolumeThreshold: 1000,
-
-		// SleepWindow is how long, in milliseconds,
-		// to wait after a circuit opens before testing for recovery
-		SleepWindow: 1000,
-
-		// ErrorPercentThreshold causes circuits to open once
-		// the rolling measure of errors exceeds this percent of requests
-		ErrorPercentThreshold: 50,
-	})
-
+	// Set HandleFuncs
 	http.HandleFunc("/", logWrapper(HandleCrossCompile))
 
 	log.Printf("[INFO] start server on %s", port)
@@ -95,54 +80,17 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 
 	resultCh := make(chan string, 1)
 	errCh := hystrix.Go("gox", func() error {
-		var stdout bytes.Buffer
-		var stderr bytes.Buffer
 
-		githubURL := fmt.Sprintf("github.com/%s/%s", repoComponent[0], repoComponent[1])
-		cmd := exec.Command("go", "get", "-u", "-d", githubURL)
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-
-		log.Printf("[INFO] go get from %s", githubURL)
-		if err := cmd.Start(); err != nil {
-			return err
+		// Get source code from github
+		if err := goGet(repoComponent[0], repoComponent[1]); err != nil {
+			return nil
 		}
 
-		if err := cmd.Wait(); err != nil {
-			log.Printf("[INFO] failed to go get %s: %s", githubURL, err.Error())
-			log.Printf("[INFO] STDERR of go get: %s", stderr.String())
-			return err
+		// Run gox and generate binary
+		output, err := gox(repoComponent[0], repoComponent[1], targetOS, targetArch)
+		if err != nil {
+			return nil
 		}
-		log.Printf("[INFO] STDOUT of go get: %s", stdout.String())
-		stderr.Reset()
-		stdout.Reset()
-
-		// Change directory to project root
-		project := filepath.Join(os.Getenv("GOPATH"), "src", "github.com", repoComponent[0], repoComponent[1])
-		if err := os.Chdir(project); err != nil {
-			return err
-		}
-
-		output := filepath.Join("/app/builds", fmt.Sprintf("%s_%s_%s", repoComponent[1], targetOS, targetArch))
-		args := []string{"-os", targetOS, "-arch", targetArch, "-output", output}
-		cmd = exec.Command("gox", args...)
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-
-		log.Printf("[INFO] run gox")
-		if err := cmd.Start(); err != nil {
-			return err
-		}
-
-		if err := cmd.Wait(); err != nil {
-			log.Printf("[INFO] failed to gox: %s", err.Error())
-			log.Printf("[INFO] STDERR of gox: %s", stderr.String())
-			return err
-		}
-
-		log.Printf("[INFO] STDOUT of gox: %s", stdout.String())
-		stdout.Reset()
-		stderr.Reset()
 
 		resultCh <- output
 		return nil
@@ -159,41 +107,82 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// guessPlatform detect OS and Arch which user requests
-// references https://github.com/flynn/flynn-cli-redirect
-func guessPlatform(userAgent string) (string, string) {
-	// Handle everything as lower case string
-	userAgent = strings.ToLower(userAgent)
-	return guessOS(userAgent), guessArch(userAgent)
-}
+// goGet executes `go get`, currently only support github.com
+func goGet(owner, repo string) error {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 
-func guessOS(userAgent string) string {
-	if isDarwin(userAgent) {
-		return "darwin"
+	url := fmt.Sprintf("github.com/%s/%s", owner, repo)
+	cmd := exec.Command("go", "get", "-u", "-d", url)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	log.Printf("[INFO] start to go get from %s", url)
+	if err := cmd.Start(); err != nil {
+		return err
 	}
 
-	if isWindows(userAgent) {
-		return "windows"
+	if err := cmd.Wait(); err != nil {
+		log.Printf("[INFO] failed to go get: %s", err.Error())
+		log.Printf("[INFO] STDERR of go get: %s", stderr.String())
+		return err
+	}
+	log.Printf("[INFO] STDOUT of go get: %s", stdout.String())
+
+	return nil
+}
+
+// gox runs gox
+func gox(owner, repo, targetOS, targetArch string) (string, error) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	// Change directory to project root
+	project := filepath.Join(os.Getenv("GOPATH"), "src", "github.com", owner, repo)
+	if err := os.Chdir(project); err != nil {
+		return "", err
 	}
 
-	return "linux"
-}
+	output := filepath.Join("/app/builds", fmt.Sprintf("%s_%s_%s", repo, targetOS, targetArch))
+	args := []string{"-os", targetOS, "-arch", targetArch, "-output", output}
+	cmd := exec.Command("gox", args...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-func guessArch(userAgent string) string {
-	if isAmd64(userAgent) || isDarwin(userAgent) {
-		return "amd64"
+	log.Printf("[INFO] start to run gox")
+	if err := cmd.Start(); err != nil {
+		return "", err
 	}
-	return "386"
+
+	if err := cmd.Wait(); err != nil {
+		log.Printf("[INFO] failed to gox: %s", err.Error())
+		log.Printf("[INFO] STDERR of gox: %s", stderr.String())
+		return "", err
+	}
+
+	log.Printf("[INFO] STDOUT of gox: %s", stdout.String())
+
+	return output, nil
 }
 
-func isDarwin(userAgent string) bool {
-	return strings.Contains(userAgent, "mac os x") || strings.Contains(userAgent, "darwin")
-}
+// Hystrix configuration for gox
+var goxHystrixConfig = hystrix.CommandConfig{
+	// How long to wait for command to complete, in milliseconds
+	Timeout: 60000,
 
-func isWindows(userAgent string) bool {
-	return strings.Contains(userAgent, "windows")
-}
+	// MaxConcurrent is how many commands of the same type
+	// can run at the same time
+	MaxConcurrentRequests: 10,
 
-func isAmd64(userAgent string) bool {
-	return strings.Contains(userAgent, "x86_64") || strings.Contains(userAgent, "amd64") || isDarwin(userAgent)
+	// VolumeThreshold is the minimum number of requests
+	// needed before a circuit can be tripped due to health
+	RequestVolumeThreshold: 1000,
+
+	// SleepWindow is how long, in milliseconds,
+	// to wait after a circuit opens before testing for recovery
+	SleepWindow: 1000,
+
+	// ErrorPercentThreshold causes circuits to open once
+	// the rolling measure of errors exceeds this percent of requests
+	ErrorPercentThreshold: 50,
 }
