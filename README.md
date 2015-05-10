@@ -11,7 +11,9 @@ gox-server
 
 Golang cross compiler on Heroku.
 
-Just request GitHub repository name, you can get compiled binary for your platform without golang runtime on your local PC. Currently request repository must be `go build`-able. Support platform is Darwin/Linux/Windows, 386/amd64. This is just POC and playing with [Heroku with Docker](https://devcenter.heroku.com/articles/introduction-local-development-with-docker). You should prepare your own build environment. 
+Just request GitHub repository name, you can get compiled binary for your platform without golang runtime on your local PC. Currently request target repository must be `go build`-able. Support platform is Darwin/Linux/Windows, 386/amd64.
+
+This is just POC and playing with [Heroku with Docker](https://devcenter.heroku.com/articles/introduction-local-development-with-docker). Don't depend on this service for production tool, you should prepare your own build environment. And if repository owner provides binary as release, you should use it
 
 ## Demo
 
@@ -28,11 +30,12 @@ Or access from your browser [https://gox-server.herokuapp.com/Soulou/curl-unix-s
 
 ## Usage
 
-To get binary hosted on [github.com/${owner}/${repo}](),
+To get binary hosted on [github.com/owner/repo](),
 
 ```bash
 $ curl -A "`uname -sp`" https://gox-server.herokuapp.com/${owner}/${repo}
 ```
+To create binary `gox-server` just runs `go build`, so [github.com/owner/repo]() need to be able to run `go build`. If it needs some extra build or command (e.g., `make`), you can not get binary.  
 
 ## Development
 
