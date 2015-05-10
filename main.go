@@ -39,7 +39,6 @@ func realMain() int {
 	log.Printf("[INFO] gox is in %s", path)
 
 	// Set hystrix configuration
-	// See more on https://github.com/afex/hystrix-go
 	hystrix.ConfigureCommand("gox", goxHystrixConfig)
 
 	// Set HandleFuncs
@@ -66,6 +65,14 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		log.Printf("[INFO] invalid method: %s", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		msg := fmt.Sprintf("Invalid method: %s\n", r.Method)
+		w.Write([]byte(msg))
+		return
+	}
+
+	// Handle root request, show project page
+	if r.URL.Path == "/" {
+		http.Redirect(w, r, "https://github.com/tcnksm/gox-server", 301)
 		return
 	}
 
@@ -73,6 +80,7 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 	if len(repoComponent) != 2 {
 		log.Printf("[INFO] faild to parse as repository name: %s", r.URL.Path)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid request: request must be https://gox-server.herokuapp.com/USER/REPO format\n"))
 		return
 	}
 
@@ -104,6 +112,17 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 	case err := <-errCh:
 		log.Printf("[ERROR] failed to cross compiling: %s", err)
 		w.WriteHeader(http.StatusServiceUnavailable)
+		switch err {
+		case hystrix.ErrTimeout:
+			w.Write([]byte("Timeout: gox-server can't handle build which takes more than 120s.\n"))
+		case hystrix.ErrMaxConcurrency:
+			w.Write([]byte("Too many access: gox-server can't handle more than 100 requests at one time.\n"))
+		case hystrix.ErrCircuitOpen:
+			w.Write([]byte("Too many errors: gox-server is unavailable now because of too many errors.\n"))
+		default:
+			msg := fmt.Sprintf("Build failed: %s\n", err.Error())
+			w.Write([]byte(msg))
+		}
 	}
 }
 
@@ -165,14 +184,15 @@ func gox(owner, repo, targetOS, targetArch string) (string, error) {
 	return output, nil
 }
 
-// Hystrix configuration for gox
+// Hystrix configuration for gox.
+// See more on https://github.com/afex/hystrix-go
 var goxHystrixConfig = hystrix.CommandConfig{
 	// How long to wait for command to complete, in milliseconds
-	Timeout: 60000,
+	Timeout: 120000,
 
 	// MaxConcurrent is how many commands of the same type
 	// can run at the same time
-	MaxConcurrentRequests: 10,
+	MaxConcurrentRequests: 100,
 
 	// VolumeThreshold is the minimum number of requests
 	// needed before a circuit can be tripped due to health
