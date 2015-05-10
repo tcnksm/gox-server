@@ -33,8 +33,9 @@ Or access from your browser [https://gox-server.herokuapp.com/Soulou/curl-unix-s
 To get binary hosted on [github.com/owner/repo](),
 
 ```bash
-$ curl -A "`uname -sp`" https://gox-server.herokuapp.com/${owner}/${repo}
+$ curl -A "`uname -sp`" https://gox-server.herokuapp.com/owner/repo
 ```
+
 To create binary `gox-server` just runs `go build`, so [github.com/owner/repo]() need to be able to run `go build`. If it needs some extra build or command (e.g., `make`), you can not get binary.  
 
 ## Development
