@@ -42,15 +42,9 @@ You can run this on local dev environment. You need to prepare `docker` and [her
 $ heroku docker:start
 ```
 
-And create request (e.g., your docker works on `192.168.59.103`), to get [github.com/tcnksm/ghr](https://github.com/tcnksm/ghr)
-
-```bash
-$ curl -A "`uname -sp`" http://192.168.59.103:3000/tcnksm/ghr > ghr
-```
-
 ## Release
 
-You can setup your own build server on Heroku. After create account on Heroku, run below,
+You can create your own compile server on Heroku. After create account on Heroku, run below,
 
 ```bash
 $ heroku create
