@@ -9,7 +9,7 @@ gox-server
 [license]: https://github.com/tcnksm/gox-server/blob/master/LICENSE
 [godocs]: http://godoc.org/github.com/tcnksm/gox-server
 
-Golang cross compile server on Heroku.
+Golang cross compile on Heroku.
 
 Just request repository name, you can get golang binary for your platform (Currently support Darwin/Linux/Windows, 386/amd64) without golang runtime on your local PC. This is just POC and playing with [Heroku with Docker](https://devcenter.heroku.com/articles/introduction-local-development-with-docker). You should prepare your own build environment.
 
@@ -48,6 +48,7 @@ You can setup your own build server on Heroku. After create account on Heroku, r
 $ heroku create
 $ herocku docker:release
 ```
+
 
 ## Contribution
 
