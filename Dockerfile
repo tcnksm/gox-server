@@ -24,7 +24,6 @@ RUN curl http://mercurial.selenic.com/release/mercurial-3.4.tar.gz \
           | tar xvzf - -C /app/heroku/mercurial --strip-components=1 \
           && cd /app/heroku/mercurial \
           && make local 
-          
 ENV PATH /app/heroku/mercurial:$PATH
 
 ONBUILD COPY . /app/src/gopath/src/github.com/root/gox-server
