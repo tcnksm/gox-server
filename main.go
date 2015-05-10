@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/afex/hystrix-go/hystrix"
 )
@@ -22,9 +24,10 @@ func main() {
 
 func realMain() int {
 
+	// Send all output to stdout
 	log.SetOutput(os.Stdout)
 
-	// Set port to listen
+	// Set port to listen must be provided from env var
 	port := DefaultPort
 	if os.Getenv(EnvPort) != "" {
 		port = ":" + os.Getenv(EnvPort)
@@ -37,9 +40,6 @@ func realMain() int {
 		return 1
 	}
 	log.Printf("[INFO] gox is in %s", path)
-
-	// Set hystrix configuration
-	hystrix.ConfigureCommand("gox", goxHystrixConfig)
 
 	// Set HandleFuncs
 	http.HandleFunc("/", logWrapper(HandleCrossCompile))
@@ -76,6 +76,7 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check correct request comes
 	repoComponent := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(repoComponent) != 2 {
 		log.Printf("[INFO] faild to parse as repository name: %s", r.URL.Path)
@@ -84,8 +85,13 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Detect platform from user agent
 	targetOS, targetArch := guessPlatform(r.UserAgent())
 
+	// Set hystrix configuration
+	hystrix.ConfigureCommand("gox", goxHystrixConfig)
+
+	// Run
 	resultCh := make(chan string, 1)
 	errCh := hystrix.Go("gox", func() error {
 
@@ -105,10 +111,12 @@ func HandleCrossCompile(w http.ResponseWriter, r *http.Request) {
 	}, nil)
 
 	select {
+
 	case output := <-resultCh:
 		log.Printf("[INFO] cross compile is done: %s", output)
 		w.WriteHeader(http.StatusOK)
 		http.ServeFile(w, r, output)
+
 	case err := <-errCh:
 		log.Printf("[ERROR] failed to cross compiling: %s", err)
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -132,7 +140,7 @@ func goGet(owner, repo string) error {
 	var stderr bytes.Buffer
 
 	url := fmt.Sprintf("github.com/%s/%s", owner, repo)
-	cmd := exec.Command("go", "get", "-u", "-d", url)
+	cmd := exec.Command("go", "get", "-u", "-d", "-v", url)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
@@ -151,7 +159,7 @@ func goGet(owner, repo string) error {
 	return nil
 }
 
-// gox runs gox
+// gox runs gox and return output artifact path
 func gox(owner, repo, targetOS, targetArch string) (string, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -162,7 +170,11 @@ func gox(owner, repo, targetOS, targetArch string) (string, error) {
 		return "", err
 	}
 
-	output := filepath.Join("/app/builds", fmt.Sprintf("%s_%s_%s", repo, targetOS, targetArch))
+	// Generate unique build ID from time
+	// This is temp solution for avoid output overwrap
+	buildID := fmt.Sprintf("%x", md5.Sum([]byte(time.Now().String())))
+
+	output := filepath.Join("/app/builds", buildID, fmt.Sprintf("%s_%s_%s", repo, targetOS, targetArch))
 	args := []string{"-os", targetOS, "-arch", targetArch, "-output", output}
 	cmd := exec.Command("gox", args...)
 	cmd.Stdout = &stdout
