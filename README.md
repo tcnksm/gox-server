@@ -13,7 +13,7 @@ Golang cross compiler on Heroku.
 
 Just request GitHub repository name, you can get compiled binary for your platform without golang runtime on your local PC. Currently request target repository must be `go build`-able. Support platform is Darwin/Linux/Windows, 386/amd64.
 
-> This is just POC and playing with [Heroku with Docker](https://devcenter.heroku.com/articles/introduction-local-development-with-docker). Don't depend on this service for production tool, you should prepare your own build environment. And if repository owner provides binary as release, you should use it.
+> This is just POC and playing with [Heroku with Docker](https://devcenter.heroku.com/articles/introduction-local-development-with-docker). Don't depend on this service for production tooling, you should prepare your own build environment. And if repository owner provides binary as release, you should use it.
 
 ## Demo
 
