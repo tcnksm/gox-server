@@ -9,7 +9,7 @@ gox-server
 [license]: https://github.com/tcnksm/gox-server/blob/master/LICENSE
 [godocs]: http://godoc.org/github.com/tcnksm/gox-server
 
-Golang cross compiler on Heroku.
+Golang cross compile on Heroku.
 
 Just request GitHub repository name, you can get compiled binary for your platform without golang runtime on your local PC. Currently request target repository must be `go build`-able. Support platform is Darwin/Linux/Windows, 386/amd64.
 
