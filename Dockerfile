@@ -20,7 +20,7 @@ RUN go get github.com/mitchellh/gox
 RUN gox -os="darwin linux windows" -arch="386 amd64" -build-toolchain
 
 RUN mkdir -p /app/heroku/mercurial
-RUN curl http://mercurial.selenic.com/release/mercurial-3.4.tar.gz \
+RUN curl -L http://mercurial.selenic.com/release/mercurial-3.4.tar.gz \
           | tar xvzf - -C /app/heroku/mercurial --strip-components=1 \
           && cd /app/heroku/mercurial \
           && make local 
